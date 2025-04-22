@@ -3,94 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <title>{{NOMBRE_FERIA}}</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f7f7f7; padding: 20px; }
-    h1, h2 { text-align: center; color: red; margin-bottom: 20px; }
-    .nav-buttons {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .nav-buttons button {
-      padding: 10px 20px;
-      margin: 0 10px;
-      background: red;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .nav-buttons button:hover {
-      background: #b30000;
-    }
-    .container {
-      max-width: 600px;
-      margin: 20px auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      display: none;
-    }
-    .container.active {
-      display: block;
-    }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input[type="text"], input[type="email"], select {
-      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px;
-    }
-    .table-options {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;
-    }
-    .table-options input[type="radio"] { display: none; }
-    .table-card {
-      display: block; background-color: #f0f8ff; border: 2px solid #ccc;
-      padding: 20px; border-radius: 8px; text-align: center; cursor: pointer;
-    }
-    .table-options input[type="radio"]:checked + .table-card {
-      border-color: red; background-color: #ffe6e6;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
   <div class="nav-buttons">
     <button id="navNueva">Nueva Reserva</button>
     <button id="navModificar">Modificar/Cancelar Reservas</button>
+    <button id="descargarCalendario">Descargar Calendario</button>
   </div>
+
   <div class="container active" id="nuevaReservaContainer">
-    <h1>{{NOMBRE_FERIA}}</h1>
+    <h1 id="formHeader">{{NOMBRE_FERIA}}</h1>
+    <div class="progress">
+      <div id="progress-1" class="active"></div>
+      <div id="progress-2"></div>
+      <div id="progress-3"></div>
+      <div id="progress-4"></div>
+    </div>
     <form id="reservaForm">
-      <div class="form-group">
-        <label for="correo">Correo electrónico:</label>
-        <input type="email" id="correo" required>
-      </div>
-      <div class="form-group">
-        <label for="empresa">Empresa:</label>
-        <input type="text" id="empresa" required>
-      </div>
-      <div class="form-group">
-        <label for="dia">Selecciona un día:</label>
-        <select id="dia" required>
-          {{DIAS}}
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="hora">Selecciona una hora:</label>
-        <select id="hora" required>
-          {{HORARIOS}}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Selecciona la mesa:</label>
-        <div class="table-options">
-          {{MESAS}}
+      <div class="step active" id="step-1">
+        <div class="form-group">
+          <label for="correo">Correo:</label>
+          <input type="email" id="correo" required>
+        </div>
+        <div class="form-group">
+          <label for="empresa">Empresa:</label>
+          <input type="text" id="empresa" required>
+        </div>
+        <div class="buttons">
+          <button type="button" id="next-1">Siguiente</button>
         </div>
       </div>
-      <button type="submit">Reservar</button>
+      <div class="step" id="step-2">
+        <div class="form-group">
+          <label for="dia">Selecciona el día:</label>
+          <select id="dia" required>
+            {{DIAS}}
+          </select>
+        </div>
+        <div class="buttons">
+          <button type="button" id="back-2">Anterior</button>
+          <button type="button" id="next-2">Siguiente</button>
+        </div>
+      </div>
+      <div class="step" id="step-3">
+        <div class="form-group">
+          <label for="hora">Selecciona la hora:</label>
+          <select id="hora" required>
+            {{HORARIOS}}
+          </select>
+        </div>
+        <div class="buttons">
+          <button type="button" id="back-3">Anterior</button>
+          <button type="button" id="next-3">Siguiente</button>
+        </div>
+      </div>
+      <div class="step" id="step-4">
+        <div class="form-group">
+          <label>Selecciona la mesa:</label>
+          <div class="table-options">
+            {{MESAS}}
+          </div>
+        </div>
+        <div class="buttons">
+          <button type="button" id="back-4">Anterior</button>
+          <button type="submit" id="submit">Guardar</button>
+        </div>
+      </div>
     </form>
     <p id="mensaje"></p>
+    <div id="success-container" style="display: none;">
+      <p id="success-message"></p>
+      <button id="new-reservation">Nueva Reserva</button>
+      <button id="cancelModification" style="display:none;">Cancelar Modificación</button>
+    </div>
   </div>
 
   <div class="container" id="modificarContainer">
@@ -105,165 +95,35 @@
     <div id="reservasList"></div>
   </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmkzjkDUq-SjBdXB2O23OyFnbV1vbrct4",
-      authDomain: "reserva-mesas-bio-boston-97e49.firebaseapp.com",
-      projectId: "reserva-mesas-bio-boston-97e49",
-      storageBucket: "reserva-mesas-bio-boston-97e49.appspot.com",
-      messagingSenderId: "604303272343",
-      appId: "1:604303272343:web:9e33b72f67eb49d0a53cd2"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  <div id="modalOverlay"></div>
+  <div id="modWizard">
+    <h2>Modificar Reserva</h2>
+    <form id="modForm">
+      <div class="form-group">
+        <label for="modDia">Nuevo Día:</label>
+        <select id="modDia" required>
+          {{DIAS}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="modHora">Nuevo Tramo:</label>
+        <select id="modHora" required>
+          {{HORARIOS}}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Selecciona la mesa:</label>
+        <div class="table-options">
+          {{MESAS_MOD}}
+        </div>
+      </div>
+      <div class="buttons">
+        <button type="button" id="modCancelBtn">Cancelar</button>
+        <button type="submit" id="modSaveBtn">Guardar Cambios</button>
+      </div>
+    </form>
+  </div>
 
-    const navNueva = document.getElementById("navNueva");
-    const navModificar = document.getElementById("navModificar");
-    const nuevaContainer = document.getElementById("nuevaReservaContainer");
-    const modificarContainer = document.getElementById("modificarContainer");
-    navNueva.addEventListener("click", () => {
-      nuevaContainer.classList.add("active");
-      modificarContainer.classList.remove("active");
-    });
-    navModificar.addEventListener("click", () => {
-      modificarContainer.classList.add("active");
-      nuevaContainer.classList.remove("active");
-    });
-
-    document.getElementById("reservaForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      const correo = document.getElementById("correo").value;
-      const empresa = document.getElementById("empresa").value;
-      const dia = document.getElementById("dia").value;
-      const hora = document.getElementById("hora").value;
-      const mesa = document.querySelector('input[name="mesa"]:checked')?.value;
-      const mensaje = document.getElementById("mensaje");
-
-      if (!mesa) {
-        mensaje.textContent = "Por favor, selecciona una mesa.";
-        mensaje.style.color = "red";
-        return;
-      }
-
-      try {
-        const ref = db.collection("{{COLECCION}}");
-        const q = await ref
-          .where("dia", "==", dia)
-          .where("hora", "==", hora)
-          .where("mesa", "==", mesa)
-          .get();
-
-        if (!q.empty) {
-          mensaje.textContent = "Esa mesa ya está reservada para ese día y hora.";
-          mensaje.style.color = "red";
-          return;
-        }
-
-        await ref.add({ correo, empresa, dia, hora, mesa, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        mensaje.textContent = "¡Reserva completada con éxito!";
-        mensaje.style.color = "green";
-      } catch (error) {
-        console.error(error);
-        mensaje.textContent = "Error al guardar la reserva.";
-        mensaje.style.color = "red";
-      }
-    });
-
-    async function buscarReservas() {
-      const correoBusqueda = document.getElementById("correoBusqueda").value.trim().toLowerCase();
-      let reservas = [];
-      const q = await db.collection("{{COLECCION}}").where("correo", "==", correoBusqueda).get();
-      q.forEach(doc => reservas.push({ id: doc.id, data: doc.data() }));
-      mostrarReservas(reservas);
-    }
-
-    async function mostrarReservas(reservas) {
-      const listDiv = document.getElementById("reservasList");
-      listDiv.innerHTML = "";
-      if (reservas.length === 0) {
-        listDiv.textContent = "No se encontraron reservas para este correo.";
-        return;
-      }
-      reservas.forEach(reserva => {
-        const div = document.createElement("div");
-        const data = reserva.data;
-        div.innerHTML = `<p><strong>Correo:</strong> ${data.correo}</p>
-                         <p><strong>Empresa:</strong> ${data.empresa}</p>
-                         <p><strong>Día:</strong> ${data.dia}</p>
-                         <p><strong>Hora:</strong> ${data.hora}</p>
-                         <p><strong>Mesa:</strong> ${data.mesa}</p>`;
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "Cancelar Reserva";
-        delBtn.addEventListener("click", async () => {
-          if (confirm("¿Desea cancelar esta reserva?")) {
-            await db.collection("{{COLECCION}}").doc(reserva.id).delete();
-            alert("Reserva cancelada.");
-            buscarReservas();
-          }
-        });
-        div.appendChild(delBtn);
-        listDiv.appendChild(div);
-      });
-    }
-
-    document.getElementById("buscarReservaForm").addEventListener("submit", e => {
-      e.preventDefault();
-      buscarReservas();
-    });
-  </script>
-  <!-- Botón para descargar calendario -->
-<div class="nav-buttons">
-  <button id="descargarCalendario">Descargar Calendario</button>
-</div>
-
-<!-- Bibliotecas jsPDF para exportar -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
-<script>
-  document.getElementById("descargarCalendario").addEventListener("click", async () => {
-    const input = prompt("Introduce tu correo para ver el calendario:");
-    if (!input) return;
-
-    let queryRef = input === "instrumentos1.com@gmail.com"
-      ? db.collection("{{COLECCION}}")
-      : db.collection("{{COLECCION}}").where("correo", "==", input);
-
-    try {
-      const snapshot = await queryRef.get();
-      const reservas = snapshot.docs.map(doc => doc.data());
-
-      if (reservas.length === 0) {
-        alert("No se encontraron reservas para ese criterio.");
-        return;
-      }
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text("Calendario de Reservas", 14, 20);
-
-      reservas.sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
-
-      const headers = [["Día", "Hora", "Mesa", "Empresa", "Correo"]];
-      const rows = reservas.map(r => [r.dia, r.hora, r.mesa, r.empresa, r.correo]);
-
-      doc.autoTable({
-        startY: 30,
-        head: headers,
-        body: rows,
-        styles: { fontSize: 10, cellPadding: 3 },
-        headStyles: { fillColor: [220, 53, 69] },
-        margin: { left: 14, right: 14 }
-      });
-
-      doc.save("calendario_reservas.pdf");
-    } catch (error) {
-      console.error("Error al generar el calendario:", error);
-      alert("Ocurrió un error al generar el calendario. Inténtalo de nuevo.");
-    }
-  });
-</script>
-
+  <script type="module" src="main.js"></script>
 </body>
 </html>
